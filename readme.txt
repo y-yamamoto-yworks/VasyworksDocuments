@@ -1,0 +1,5 @@
+Vasywoks システムドキュメントについて
+
+Vasyworks システムドキュメントは、VasyworksDB、VasyworksMGR、VasyworksLIST、VasyworksAPI等のVasyworksシステム全般のドキュメントを扱っています。
+
+Vasyworks システムドキュメントおよびその改変物や派生物について、再配布を一切禁止します。
