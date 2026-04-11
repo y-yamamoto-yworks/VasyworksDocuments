@@ -2,4 +2,11 @@ Vasywoks システムドキュメントについて
 
 Vasyworks システムドキュメントは、VasyworksDB、VasyworksMGR、VasyworksLIST、VasyworksAPI、VasyworksSEARCH等のVasyworksシステム全般のドキュメントを扱っています。
 
-Vasyworks システムドキュメントおよびその改変物や派生物について、再配布を一切禁止します。
+Vasyworks システムドキュメントは閲覧を目的として公開しています。
+
+著作権は作者に帰属します。
+無断での再配布・商用利用はご遠慮ください。
+
+教育・研究目的での利用については、個別にご相談ください。
+
+
