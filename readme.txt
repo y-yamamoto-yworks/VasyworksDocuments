@@ -1,4 +1,4 @@
-Vasywoks システムドキュメントについて
+Vasyworks システムドキュメントについて
 
 Vasyworks システムドキュメントは、VasyworksDB、VasyworksMGR、VasyworksLIST、VasyworksAPI、VasyworksSEARCH等のVasyworksシステム全般のドキュメントを扱っています。
 
