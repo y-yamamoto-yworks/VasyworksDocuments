@@ -1,0 +1,929 @@
+【Vasyworks セットアップ】
+
+対象OS: Ubuntu Server 24.04 LTS
+
+
+
+1.初期セットアップ
+
+0)準備
+# sudo su -       rootユーザに変更
+# apt update
+# apt upgrade → メッセージが出た場合はデフォルトでOKする。
+# apt install language-pack-ja
+# apt install fonts-ipa*
+
+# locale -a       ja_JP.UTF-8があるかないか確認
+↓ja_JP.UTF-8が無い場合は下記を実行
+# localedef -i ja_JP -c -f UTF-8 -A /usr/share/locale/locale.alias ja_JP.UTF-8
+
+# timedatectl set-timezone Asia/Tokyo
+
+# exit    （インストールを中断する場合）
+
+1)Nginxのインストール
+# sudo su -      rootユーザに変更（インストールを再開する場合）
+# apt install nginx
+# systemctl enable nginx.service    ←自動起動
+# exit    （インストールを中断する場合）
+
+2)Python3のインストール（python3.12）
+# sudo su -      rootユーザに変更（インストールを再開する場合）
+# apt install python3
+# apt install python3-pip python3-dev python3-venv
+# apt install gettext
+# apt install libpq-dev
+# exit    （インストールを中断する場合）
+
+3) FTPサーバのインストール
+# sudo su -      rootユーザに変更（インストールを再開する場合）
+# adduser web     ←ファイルアップロード用、パスワードは任意
+# chmod 755 /home/web        ←ホームディレクトリのパーミッションの変更
+# apt install vsftpd
+# systemctl enable vsftpd.service   ←自動起動
+
+# vi /etc/vsftpd.conf
+-----
+listen=YES        （変更）
+#listen_ipv6=YES        （コメントアウトする）
+write_enable=YES     （コメントを外す）
+local_umask=022        （コメントを外す）
+ascii_upload_enable=YES        （コメントを外す）
+ascii_download_enable=YES        （コメントを外す）
+chroot_local_user=YES        （コメントを外す）
+ls_recurse_enable=YES        （コメントを外す）
+seccomp_sandbox=NO        （追加）
+allow_writeable_chroot=YES        （追加）
+pasv_enable=YES        （追加）
+pasv_min_port=任意のポート番号1        （追加）
+pasv_max_port=任意のポート番号2        （追加）
+-----
+
+# service vsftpd restart
+# exit    （インストールを中断する場合）
+
+※ pasvモードで使用するポートについてファイアウォールの許可設定も確認する。
+※ web ユーザでFTP接続を確認する。
+
+4) PostgraSQLのインストールとデータベース作成
+# sudo su -      rootユーザに変更（インストールを再開する場合）
+# apt install postgresql-16
+# passwd postgres    ←PostgreSQL用ユーザのパスワード設定、パスワードは任意
+# exit
+
+# sudo su postgres     postgresユーザに変更
+# createdb rent_db --encoding=UTF-8 --locale=ja_JP.UTF-8 --template=template0
+# psql rent_db
+-----
+rent_db=# alter role postgres with password '任意のパスワード';
+rent_db=# create role yworks with login;
+rent_db=# alter role yworks superuser;
+rent_db=# alter role yworks with password '任意のパスワード';
+rent_db=# alter database rent_db owner to yworks;
+rent_db=# set time zone 'Asia/Tokyo';
+
+rent_db=# \q
+-----
+# exit
+# sudo su -      rootユーザに変更
+# vi /etc/postgresql/16/main/postgresql.conf
+-----
+listen_addresses = '*'         （変更）
+autovacuum = on        （コメントを外す）
+  ※ 以下、autovacuum関連の設定のコメントを外す。
+timezone = 'Asia/Tokyo'         （変更）
+-----
+
+# vi /etc/postgresql/16/main/pg_hba.conf
+-----
+# IPv4 local connections:
+host    all    all  127.0.0.1/32    password        （変更）
+-----
+
+# service postgresql restart
+# exit
+
+
+
+2.Vasyworks用WEBサーバ（NginX）のセットアップ
+
+1)プロジェクト設定準備
+# sudo su -      rootユーザに変更
+
+# vi /etc/nginx/nginx.conf
+------
+client_max_body_size 50M;        （Basic Settingsに追加）
+------
+# service nginx restart
+#exit
+
+# sudo su web     webユーザに変更
+# cd ~
+# mkdir html
+# cd html
+# mkdir vacancy_model
+# mkdir vacancy_model/static
+# mkdir vacancy_mgr
+# mkdir vacancy_mgr/static
+# mkdir vacancy
+# mkdir vacancy/static
+# mkdir vacancy_api
+# mkdir vacancy_api/static
+# mkdir vacancy_search
+# mkdir vacancy_search/static
+
+2)vacancy_modelのバックエンドサーバ設定
+# cd ~/html/vacancy_model
+# python3 -m venv venv
+# source venv/bin/activate        ←venv環境に移行
+
+-----
+(venv) pip3 install django==5.2.12
+(venv) pip3 install djangorestframework==3.17.1
+(venv) pip3 install django-filter==25.2
+(venv) pip3 install wheel==0.46.3
+(venv) pip3 install psycopg2==2.9.11
+(venv) pip3 install psycopg2-binary==2.9.11
+(venv) pip3 install python-dateutil==2.8.2
+(venv) pip3 install gunicorn==25.3.0
+(venv) pip3 install pycryptodome==3.23.0
+-----
+
+(venv) cd ~/html
+(venv) django-admin startproject vacancy_model ./vacancy_model
+(venv) cd vacancy_model
+
+(venv) vi vacancy_model/settings.py
+-----
+ALLOWED_HOSTS = ['*']        （変更）
+-----
+
+(venv) which gunicorn     (gunicornのパスを確認)
+
+(venv) python manage.py runserver 0.0.0.0:8080
+↑ブラウザで表示確認、Ctrl+Cでプロセス停止
+
+(venv) gunicorn vacancy_model.wsgi --bind=0.0.0.0:8080
+↑ブラウザで表示確認、Ctrl+Cでプロセス停止
+
+(venv) deactivate        ←venv環境終了
+
+3)vacancy_mgrのバックエンドサーバ設定
+# cd ~/html/vacancy_mgr
+# python3 -m venv venv
+# source venv/bin/activate        ←venv環境に移行
+
+※ 以下のライブラリは以降の各プロジェクト共通
+-----
+(venv) pip3 install django==5.2.12
+(venv) pip3 install djangorestframework==3.12.4
+(venv) pip3 install django-bootstrap5==21.3
+(venv) pip3 install django-filter==2.4.0
+(venv) pip3 install django-cols-headers==4.9.0
+(venv) pip3 install pillow==8.2.0
+(venv) pip3 install wheel==0.37.0
+(venv) pip3 install psycopg2==2.8.6
+(venv) pip3 install psycopg2-binary==2.8.6
+(venv) pip3 install python-dateutil==2.8.1
+(venv) pip3 install gunicorn==20.1.0
+(venv) pip3 install pycryptodome==3.10.1
+(venv) pip3 install qrcode==6.1
+-----
+
+(venv) cd ~/html
+(venv) django-admin startproject vacancy_mgr ./vacancy_mgr
+(venv) cd vacancy_mgr
+
+(venv) vi vacancy_mgr/settings.py
+-----
+ALLOWED_HOSTS = ['*']        （変更）
+-----
+
+(venv) which gunicorn     (gunicornのパスを確認)
+
+(venv) python manage.py runserver 0.0.0.0:8080
+↑ブラウザで表示確認、Ctrl+Cでプロセス停止
+
+(venv) gunicorn vacancy_mgr.wsgi --bind=0.0.0.0:8080
+↑ブラウザで表示確認、Ctrl+Cでプロセス停止
+
+(venv) deactivate        ←venv環境終了
+
+4)vacancyのバックエンドサーバ設定
+# cd ~/html/vacancy
+# python3 -m venv venv
+# source venv/bin/activate        ←venv環境に移行
+
+※ vacancy_mgrと同じライブラリを組み込み
+-----
+(venv) pip3 install django==
+・・・
+-----
+
+(venv) cd ~/html
+(venv) django-admin startproject vacancy ./vacancy
+(venv) cd vacancy
+
+(venv) vi vacancy/settings.py
+-----
+ALLOWED_HOSTS = ['*']        （変更）
+-----
+
+(venv) which gunicorn     (gunicornのパスを確認)
+
+(venv) python manage.py runserver 0.0.0.0:8080
+↑ブラウザで表示確認、Ctrl+Cでプロセス停止
+
+(venv) gunicorn vacancy.wsgi --bind=0.0.0.0:8080
+↑ブラウザで表示確認、Ctrl+Cでプロセス停止
+
+(venv) deactivate        ←venv環境終了
+
+5)vacancy_apiのバックエンドサーバ設定
+# cd ~/html/vacancy_api
+# python3 -m venv venv
+# source venv/bin/activate        ←venv環境に移行
+
+※ vacancy_mgrと同じライブラリを組み込み
+-----
+(venv) pip3 install django==
+・・・
+-----
+
+(venv) cd ~/html
+(venv) django-admin startproject vacancy_api ./vacancy_api
+(venv) cd vacancy_api
+
+(venv) vi vacancy_api/settings.py
+-----
+ALLOWED_HOSTS = ['*']        （変更）
+-----
+
+(venv) which gunicorn     (gunicornのパスを確認)
+
+(venv) python manage.py runserver 0.0.0.0:8080
+↑ブラウザで表示確認、Ctrl+Cでプロセス停止
+
+(venv) gunicorn vacancy_api.wsgi --bind=0.0.0.0:8080
+↑ブラウザで表示確認、Ctrl+Cでプロセス停止
+
+(venv) deactivate        ←venv環境終了
+
+6)vacancy_searchのバックエンドサーバ設定
+# cd ~/html/vacancy_search
+# python3 -m venv venv
+# source venv/bin/activate        ←venv環境に移行
+
+※ vacancy_mgrと同じライブラリを組み込み
+-----
+(venv) pip3 install django==
+・・・
+-----
+
+(venv) cd ~/html
+(venv) django-admin startproject vacancy_search ./vacancy_search
+(venv) cd vacancy_search
+
+(venv) vi vacancy_search/settings.py
+-----
+ALLOWED_HOSTS = ['*']        （変更）
+-----
+
+(venv) which gunicorn     (gunicornのパスを確認)
+
+(venv) python manage.py runserver 0.0.0.0:8080
+↑ブラウザで表示確認、Ctrl+Cでプロセス停止
+
+(venv) gunicorn vacancy_search.wsgi --bind=0.0.0.0:8080
+↑ブラウザで表示確認、Ctrl+Cでプロセス停止
+
+(venv) deactivate        ←venv環境終了
+
+7) Nginx の設定
+# exit
+# sudo su -      rootユーザに変更
+
+# cd /etc/systemd/system/
+# vi gunicorn_vacancy_model.socket
+-----
+[Unit]
+Description=gunicorn socket vacancy model
+
+[Socket]
+ListenStream=/run/gunicorn_vacancy_model/socket
+
+[Install]
+WantedBy=sockets.target
+-----
+
+# cp gunicorn_vacancy_model.socket gunicorn_vacancy_mgr.socket        ←コピーして修正
+# cp gunicorn_vacancy_model.socket gunicorn_vacancy.socket       ←コピーして修正
+# cp gunicorn_vacancy_model.socket gunicorn_vacancy_api.socket       ←コピーして修正
+# cp gunicorn_vacancy_model.socket gunicorn_vacancy_search.socket       ←コピーして修正
+
+# vi gunicorn_vacancy_mgr.socket        ←異なる箇所だけ修正
+-----
+[Unit]
+Description=gunicorn socket vacancy manager        （変更）
+
+[Socket]
+ListenStream=/run/gunicorn_vacancy_mgr/socket       （変更）
+
+[Install]
+WantedBy=sockets.target
+-----
+
+# vi gunicorn_vacancy.socket       ←異なる箇所だけ修正
+-----
+[Unit]
+Description=gunicorn socket vacancy       （変更）
+
+[Socket]
+ListenStream=/run/gunicorn_vacancy/socket       （変更）
+
+[Install]
+WantedBy=sockets.target
+-----
+
+# vi gunicorn_vacancy_api.socket       ←異なる箇所だけ修正
+-----
+[Unit]
+Description=gunicorn socket vacancy api      （変更）
+
+[Socket]
+ListenStream=/run/gunicorn_vacancy_api/socket       （変更）
+
+[Install]
+WantedBy=sockets.target
+-----
+
+# vi gunicorn_vacancy_search.socket        ←異なる箇所だけ修正
+-----
+[Unit]
+Description=gunicorn socket vacancy search        （変更）
+
+[Socket]
+ListenStream=/run/gunicorn_vacancy_search/socket       （変更）
+
+[Install]
+WantedBy=sockets.target
+-----
+
+#vi gunicorn_vacancy_model.service
+-----
+[Unit]
+Description=gunicorn daemon vacancy model
+Requires=gunicorn_vacancy_model.socket
+After=network.target
+
+[Service]
+PIDFile=/run/gunicorn_vacancy_model/pid
+User=web
+Group=web
+RuntimeDirectory=gunicorn_vacancy_model
+WorkingDirectory=/home/web/html/vacancy_model
+ExecStart=/home/web/html/vacancy_model/venv/bin/gunicorn -w 3 -b 0.0.0.0:8000 vacancy_model.wsgi
+ExecReload=/bin/kill -s HUP $MAINPID
+ExecStop=/bin/kill -s TERM $MAINPID
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target
+-----
+
+# cp gunicorn_vacancy_model.service gunicorn_vacancy_mgr.service        ←コピーして修正
+# cp gunicorn_vacancy_model.service gunicorn_vacancy.service       ←コピーして修正
+# cp gunicorn_vacancy_model.service gunicorn_vacancy_api.service       ←コピーして修正
+# cp gunicorn_vacancy_model.service gunicorn_vacancy_search.service       ←コピーして修正
+
+# vi gunicorn_vacancy_mgr.service        ←異なる箇所だけ修正
+-----
+[Unit]
+Description=gunicorn daemon vacancy manager       （変更）
+Requires=gunicorn_vacancy_mgr.socket       （変更）
+After=network.target
+
+[Service]
+PIDFile=/run/gunicorn_vacancy_mgr/pid       （変更）
+User=web
+Group=web
+RuntimeDirectory=gunicorn_vacancy_mgr       （変更）
+WorkingDirectory=/home/web/html/vacancy_mgr      （変更）
+ExecStart=/home/web/html/vacancy_mgr/venv/bin/gunicorn -w 3 -b 0.0.0.0:8001 vacancy_mgr.wsgi       （変更）
+ExecReload=/bin/kill -s HUP $MAINPID
+ExecStop=/bin/kill -s TERM $MAINPID
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target
+-----
+
+# vi gunicorn_vacancy.service        ←異なる箇所だけ修正
+-----
+[Unit]
+Description=gunicorn daemon vacancy       （変更）
+Requires=gunicorn_vacancy.socket       （変更）
+After=network.target
+
+[Service]
+PIDFile=/run/gunicorn_vacancy/pid      （変更）
+User=web
+Group=web
+RuntimeDirectory=gunicorn_vacancy       （変更）
+WorkingDirectory=/home/web/html/vacancy      （変更）
+ExecStart=/home/web/html/vacancy/venv/bin/gunicorn -w 3 -b 0.0.0.0:8002 vacancy.wsgi       （変更）
+ExecReload=/bin/kill -s HUP $MAINPID
+ExecStop=/bin/kill -s TERM $MAINPID
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target
+-----
+
+# vi gunicorn_vacancy_api.service        ←異なる箇所だけ修正
+-----
+[Unit]
+Description=gunicorn daemon vacancy api       （変更）
+Requires=gunicorn_vacancy_api.socket       （変更）
+After=network.target
+
+[Service]
+PIDFile=/run/gunicorn_vacancy_api/pid       （変更）
+User=web
+Group=web
+RuntimeDirectory=gunicorn_vacancy_api       （変更）
+WorkingDirectory=/home/web/html/vacancy_api      （変更）
+ExecStart=/home/web/html/vacancy_api/venv/bin/gunicorn -w 3 -b 0.0.0.0:8003 vacancy_api.wsgi       （変更）
+ExecReload=/bin/kill -s HUP $MAINPID
+ExecStop=/bin/kill -s TERM $MAINPID
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target
+-----
+
+# vi gunicorn_vacancy_search.service        ←異なる箇所だけ修正
+-----
+[Unit]
+Description=gunicorn daemon vacancy search       （変更）
+Requires=gunicorn_vacancy_search.socket       （変更）
+After=network.target
+
+[Service]
+PIDFile=/run/gunicorn_vacancy_search/pid       （変更）
+User=web
+Group=web
+RuntimeDirectory=gunicorn_vacancy_search       （変更）
+WorkingDirectory=/home/web/html/vacancy_search      （変更）
+ExecStart=/home/web/html/vacancy_search/venv/bin/gunicorn -w 3 -b 0.0.0.0:8004 vacancy_search.wsgi       （変更）
+ExecReload=/bin/kill -s HUP $MAINPID
+ExecStop=/bin/kill -s TERM $MAINPID
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target
+-----
+
+# cd /etc/nginx/conf.d
+# vi vacancy_model.conf
+-----
+server {
+    listen  80; 
+    server_name     vasyworks-db.hogehoge.net;        ←空室情報用のURLまたはIPアドレス
+    
+    location /static {
+        alias /home/web/html/vacancy_model/static;
+    }
+    
+    location /static/admin {
+        alias /home/web/html/vacancy_model/venv/lib/python3.8/site-packages/django/contrib/admin/static/admin;
+    }
+    
+    location /robots.txt {
+        alias /home/web/html/vacancy_model/robots.txt;
+    }
+    
+    location / {
+        proxy_pass http://unix:/run/gunicorn_vacancy_model/socket;
+        proxy_set_header Host $http_host;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    }
+}
+-----
+
+# cp vacancy_model.conf vacancy_mgr.conf        ←コピーして修正
+# cp vacancy_model.conf vacancy.conf        ←コピーして修正
+# cp vacancy_model.conf vacancy_api.conf        ←コピーして修正
+# cp vacancy_model.conf vacancy_search.conf        ←コピーして修正
+
+# vi vacancy_mgr.conf
+-----
+server {
+    listen  80; 
+    server_name     vasyworks-mgr.hogehoge.net;        ←空室情報用のURLまたはIPアドレス
+    
+    location /static {
+        alias /home/web/html/vacancy_mgr/static;         （変更）
+    }
+    
+    location /static/admin{・・・}         （削除）
+    
+    location /robots.txt {
+        alias /home/web/html/vacancy_mgr/robots.txt;         （変更）
+    }
+    
+    location / {
+        proxy_pass http://unix:/run/gunicorn_vacancy_mgr/socket;         （変更）
+        proxy_set_header Host $http_host;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    }
+}
+-----
+
+# vi vacancy.conf
+-----
+server {
+    listen  80; 
+    server_name     vasyworks-list.hogehoge.net;        ←空室情報用のURLまたはIPアドレス
+    
+    location /static {
+        alias /home/web/html/vacancy/static;         （変更）
+    }
+    
+    location /static/admin{・・・}         （削除）
+    
+    location /robots.txt {
+        alias /home/web/html/vacancy/robots.txt;         （変更）
+    }
+    
+    location / {
+        proxy_pass http://unix:/run/gunicorn_vacancy/socket;         （変更）
+        proxy_set_header Host $http_host;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    }
+}
+-----
+
+# vi vacancy_api.conf
+-----
+server {
+    listen  80;
+    server_name     vasyworks-api.hogehoge.net;        ←空室情報用のURLまたはIPアドレス
+    
+    location /static {
+        alias /home/web/html/vacancy_api/static;         （変更）
+    }
+    
+    location /static/rest_framework {         （変更）
+        alias /home/web/html/vacancy_api/venv/lib/python3.8/site-packages/rest_framework/static/rest_framework;         （変更）
+    }
+    
+    location /robots.txt {
+        alias /home/web/html/vacancy_api/robots.txt;         （変更）
+    }
+    
+    location / {
+        proxy_pass http://unix:/run/gunicorn_vacancy_api/socket;         （変更）
+        proxy_set_header Host $http_host;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    }
+}
+
+# vi vacancy_search.conf
+-----
+server {
+    listen  80;
+    server_name     vasyworks-search.hogehoge.net;        ←空室情報用のURLまたはIPアドレス
+    
+    location /static {
+        alias /home/web/html/vacancy_search/static;         （変更）
+    }
+    
+    location /static/admin{・・・}         （削除）
+    
+    location /robots.txt {
+        alias /home/web/html/vacancy_search/robots.txt;         （変更）
+    }
+    
+    location / {
+        proxy_pass http://unix:/run/gunicorn_vacancy_search/socket;         （変更）
+        proxy_set_header Host $http_host;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    }
+}
+-----
+# systemctl daemon-reload
+# systemctl enable gunicorn_vacancy_model.service
+# systemctl enable gunicorn_vacancy_mgr.service
+# systemctl enable gunicorn_vacancy.service
+# systemctl enable gunicorn_vacancy_api.service
+# systemctl enable gunicorn_vacancy_search.service
+
+# nginx -t        Nginx設定のテスト
+
+# service gunicorn_vacancy_model stop
+# service gunicorn_vacancy_model start
+# service gunicorn_vacancy_mgr stop
+# service gunicorn_vacancy_mgr start
+# service gunicorn_vacancy stop
+# service gunicorn_vacancy start
+# service gunicorn_vacancy_api stop
+# service gunicorn_vacancy_api start
+# service gunicorn_vacancy_search stop
+# service gunicorn_vacancy_search start
+# service nginx restart
+
+※ gunicorn系のserviceコマンドはrestartでうまく動かない場合があります。
+
+→ブラウザで表示を確認
+
+
+********** 参考 **********
+gunicorn
+        -w 3   ←ワーカープロセス（2〜4で設定）
+        -b 0.0.0.0:8000    ←ポート番号8000でバインド、各プロジェクトでポートを分ける。
+
+
+********** 参考 **********
+Nginxがうまく動かない時の調査用コマンド    
+        cat /var/log/nginx/error.log
+        systemctl status gunicorn
+        file /run/gunicorn/socket
+
+
+
+3.VasyworksDB（データベース構築プロジェクト）のデプロイ
+
+1) web ユーザでサーバにFTP接続する。
+2) web ユーザのホームディレクトリの/html/vacacancy_model/ を開く
+3) db.sqllite3 ファイルがあれば削除する。
+4) vacancy_model プロジェクトの下記をコピーする。
+  ※ vacancy_model ディレクトリのsettings.pyのSECRET_KEYはファイルコピーの前に保管しておく。
+  ・vacancy_model ディレクトリのsettings.pyとurls.py
+  ・rent_db ディレクトリの全て
+5) vacancy_model プロジェクトのvacancy_model ディレクトリのsettings.pyを修正する。
+  ・SECRET_KEY='保管しておいたSECRET_KEY'
+  ・DEBUG=False
+  ・データベースの設定
+        HOSTは127.0.0.1
+        PASSWORDは設定済みのyworksのパスワード
+6) web ユーザのホームディレクトリにinitial-dataディレクトリを全てコピーする。
+7) サーバにSSH接続する。
+8) rent_dbを構築する。
+    # sudo su web → ユーザをwebに変更
+    # cd ~/html/vacancy_model
+    # source venv/bin/activate
+    (venv) python manage.py migrate
+    (venv) python manage.py createsuperuser
+       ユーザ名: root
+       メールアドレス: 任意のメールアドレス
+       Password: 任意のパスワード
+    (venv) deactivate
+    # psql -h 127.0.0.1 -U yworks -d rent_db
+    rent_db=# \cd /home/web/initial-data/sql/import
+    rent_db=# \i import_enum_data.sql
+    rent_db=# \i import_sample_data.sql
+    ※ 京都市商圏用の場合は、import_kyoto_data.sql も実行する。
+    rent_db=# \q
+    # exit
+9) プロジェクトを再起動する。
+   # sudo su -
+   # service gunicorn_vacancy_model stop
+       ※警告が出た場合は systemctl stop gunicorn_vacancy_model.socket
+   # service gunicorn_vacancy_model start
+   # service nginx restart
+10) SSH接続をexitする。
+11) ブラウザで管理サイトを表示する。
+     例: http://vasyworks-db.hogehoge.net/admin
+       ※エラーが出る場合はサーバを再起動
+12) rootユーザでログインし、ユーザーのテーブルに会社の管理者ユーザを登録する。
+     例：
+     ユーザ名: Administrator
+     パスワード: 任意のパスワード
+     → 保存して編集を続ける。
+      姓: 任意の会社名
+      名: システム管理者
+      メールアドレス: 任意のメールアドレス
+      パーミッション： 有効・is_company・is_company_admin にチェック
+      → 保存
+13) その他、管理サイト用のユーザ等が必要な場合は登録する。
+14) 管理サイトを利用して、各種マスタのレコードを登録する。
+
+
+
+4.VasyworksMGR（空室情報データ管理プロジェクト）のデプロイ
+
+1) web ユーザでサーバにFTP接続する。
+2) web ユーザのホームディレクトリの/html/vacacancy_mgr/ を開く
+3) db.sqllite3 ファイルがあれば削除する。
+4) vacancy_mgr プロジェクトの下記をコピーする。
+  ※ vacancy_mgr ディレクトリのsettings.pyのSECRET_KEYはファイルコピーの前に保管しておく。
+  ※ 本稼働用のサーバの場合、各ディレクトリにtestsディレクトリがあれば削除する。
+  ・vacancy_mgrディレクトリのsettings.pyとurls.py
+  ・api ディレクトリの全て
+  ・common ディレクトリの全て
+  ・company ディレクトリの全て
+  ・documents ディレクトリの全て
+  ・enums ディレクトリの全て
+  ・infoディレクトリの全て
+  ・libディレクトリの全て
+  ・masters ディレクトリの全て
+  ・menu ディレクトリの全て
+  ・owner ディレクトリの全て
+  ・property ディレクトリの全て
+  ・search ディレクトリの全て
+  ・trader ディレクトリの全て
+  ・users ディレクトリの全て
+  ・vacancy_item ディレクトリの全て
+  ・viewer ディレクトリの全て
+  ・static ディレクトリの全て
+  ・templates ディレクトリの全て
+5) vacancy_mgr プロジェクトのvacancy_mgr ディレクトリのsettings.pyを修正する。
+  ・SECRET_KEY='保管しておいたSECRET_KEY'
+  ・DEBUG=False
+  ・データベースの設定
+        HOSTは127.0.0.1
+        PASSWORDは設定済みのyworksのパスワード
+6) 画像データ等の保存用ディレクトリ（media）を作成する。
+  ・FTP接続で web ユーザのホームディレクトリにvacancy_data ディレクトリを作成する。
+  ・vacancy_data ディレクトリの下に media ディレクトリを作成する。
+7) media ディレクトリのシンボリックリンクを作成する。
+   # sudo su web
+   # cd ~/html/vacancy_mgr
+   # ln -s /home/web/vacancy_data/media media
+   # exit
+8) プロジェクトを再起動する。
+   # sudo su -
+   # service gunicorn_vacancy_mgr stop
+       ※警告が出た場合は systemctl stop gunicorn_vacancy_mgr.socket
+   # service gunicorn_vacancy_mgr start
+   # service nginx restart
+9) SSH接続をexitする。
+10) ブラウザで管理サイトを表示する。
+     例: http://vasyworks-mgr.hogehoge.net/
+       ※エラーが出る場合はサーバを再起動
+11) 会社の管理者ユーザ（Administrator）でログインし、会社情報の登録を行う。
+12) 「システム管理」の「システムユーザ」を実行し、管理部署の実務者ユーザを作成する。
+13) 「システム管理」の「空室情報ユーザ」を実行し、空室情報の閲覧ユーザを作成する。
+14) その他、マスタ登録等を必要に応じて行う。
+
+
+
+5.VasyworksLIST（空室情報一覧プロジェクト）のデプロイ
+
+1) web ユーザでサーバにFTP接続する。
+2) web ユーザのホームディレクトリの/html/vacancy/ を開く
+3) db.sqllite3 ファイルがあれば削除する。
+4) vacancy プロジェクトの下記をコピーする。
+  ※ vacancy ディレクトリのsettings.pyのSECRET_KEYはファイルコピーの前に保管しておく。
+  ※ 本稼働用のサーバの場合、各ディレクトリにtestsディレクトリがあれば削除する。
+  ・vacancy ディレクトリのsettings.pyとurls.py
+  ・api ディレクトリの全て
+  ・building ディレクトリの全て
+  ・documents ディレクトリの全て
+  ・garage ディレクトリの全て
+  ・libディレクトリの全て
+  ・menu ディレクトリの全て
+  ・movie ディレクトリの全て
+  ・panorama ディレクトリの全て
+  ・rent_db ディレクトリの全て
+  ・room ディレクトリの全て
+  ・users ディレクトリの全て
+  ・viewer ディレクトリの全て
+  ・static ディレクトリの全て
+  ・templates ディレクトリの全て
+5) vacancy プロジェクトのvacancy ディレクトリのsettings.pyを修正する。
+  ・SECRET_KEY='保管しておいたSECRET_KEY'
+  ・DEBUG=False
+  ・データベースの設定
+        HOSTは127.0.0.1
+        PASSWORDは設定済みのyworksのパスワード
+6) media ディレクトリのシンボリックリンクを作成する。
+   # sudo su web
+   # cd ~/html/vacancy
+   # ln -s /home/web/vacancy_data/media media
+   # exit
+7) プロジェクトを再起動する。
+   # sudo su -
+   # service gunicorn_vacancy stop
+       ※警告が出た場合は systemctl stop gunicorn_vacancy.socket
+   # service gunicorn_vacancy start
+   # service nginx restart
+8) SSH接続をexitする。
+9) ブラウザで管理サイトを表示する。
+     例: http://vasyworks-list.hogehoge.net/
+       ※エラーが出る場合はサーバを再起動
+10) 空室情報の閲覧ユーザでログインし、表示を確認する。
+
+
+
+6.VasyworksAPI（空室情報APIプロジェクト）のデプロイ
+
+1) web ユーザでサーバにFTP接続する。
+2) web ユーザのホームディレクトリの/html/vacacancy_api/ を開く
+3) db.sqllite3 ファイルがあれば削除する。
+4) vacancy_api プロジェクトの下記をコピーする。
+  ※ vacancy_api ディレクトリのsettings.pyのSECRET_KEYはファイルコピーの前に保管しておく。
+  ※ 本稼働用のサーバの場合、各ディレクトリにtestsディレクトリがあれば削除する。
+  ・vacancy_api ディレクトリのsettings.pyとurls.py
+  ・building ディレクトリの全て
+  ・common ディレクトリの全て
+  ・company ディレクトリの全て
+  ・documents ディレクトリの全て
+  ・libディレクトリの全て
+  ・master ディレクトリの全て
+  ・rent_db ディレクトリの全て
+  ・room ディレクトリの全て
+  ・search ディレクトリの全て
+  ・users ディレクトリの全て
+  ・templates ディレクトリの全て
+5) vacancy_api プロジェクトのvacancy_api ディレクトリのsettings.pyを修正する。
+  ・SECRET_KEY='保管しておいたSECRET_KEY'
+  ・DEBUG=False
+  ・データベースの設定
+        HOSTは127.0.0.1
+        PASSWORDは設定済みのyworksのパスワード
+6) media ディレクトリのシンボリックリンクを作成する。
+   # sudo su web
+   # cd ~/html/vacancy_api
+   # ln -s /home/web/vacancy_data/media media
+   # exit
+7) プロジェクトを再起動する。
+   # sudo su -
+   # service gunicorn_vacancy_api stop
+       ※警告が出た場合は systemctl stop gunicorn_vacancy_api.socket
+   # service gunicorn_vacancy_api start
+   # service nginx restart
+8) SSH接続をexitする。
+9) ブラウザで管理サイトを表示する。
+     例: http://vasyworks-api.hogehoge.net/
+       ※エラーが出る場合はサーバを再起動
+10) 自社のAPIキーを使用し、APIのURLを直接入力して表示を確認する。
+
+
+
+7.VasyworksSEARCH（空室情報検索プロジェクト）のデプロイ
+
+1) web ユーザでサーバにFTP接続する。
+2) web ユーザのホームディレクトリの/html/vacacancy_search/ を開く
+3) db.sqllite3 ファイルがあれば削除する。
+4) vacancy_search プロジェクトの下記をコピーする。
+  ※ vacancy_search ディレクトリのsettings.pyのSECRET_KEYはファイルコピーの前に保管しておく。
+  ※ 本稼働用のサーバの場合、各ディレクトリにtestsディレクトリがあれば削除する。
+  ・vacancy_search ディレクトリのsettings.pyとurls.py
+  ・api ディレクトリの全て
+  ・building ディレクトリの全て
+  ・garage ディレクトリの全て
+  ・libディレクトリの全て
+  ・menu ディレクトリの全て
+  ・movie ディレクトリの全て
+  ・panorama ディレクトリの全て
+  ・rent_db ディレクトリの全て
+  ・room ディレクトリの全て
+  ・search ディレクトリの全て
+  ・search_map ディレクトリの全て
+  ・users ディレクトリの全て 
+  ・viewer ディレクトリの全て
+  ・static ディレクトリの全て
+  ・templates ディレクトリの全て
+5) vacancy_search プロジェクトのvacancy_search ディレクトリのsettings.pyを修正する。
+  ・SECRET_KEY='保管しておいたSECRET_KEY'
+  ・DEBUG=False
+  ・データベースの設定
+        HOSTは127.0.0.1
+        PASSWORDは設定済みのyworksのパスワード
+6) media ディレクトリのシンボリックリンクを作成する。
+   # sudo su web
+   # cd ~/html/vacancy_search
+   # ln -s /home/web/vacancy_data/media media
+   # exit
+7) プロジェクトを再起動する。
+   # sudo su -
+   # service gunicorn_vacancy_search stop
+       ※警告が出た場合は systemctl stop gunicorn_vacancy_search.socket
+   # service gunicorn_vacancy_search start
+   # service nginx restart
+8) SSH接続をexitする。
+9) ブラウザで管理サイトを表示する。
+     例: http://vasyworks-search.hogehoge.net/
+10) 空室情報の閲覧ユーザでログインし、表示を確認する。
+
+
+
+8.ユニットテスト用データの準備
+
+各プロジェクトのユニットテストを実行する場合は、下記のような手順でユニットテスト用データを用意する。
+
+1) GitHubのVasyworksDBリポジトリにあるtest-dataをディレクトリごと、 web ユーザのホームディレクトリにコピーしする。
+2) /home/web/test-data/Mediaディレクトリにある、privateディレクトリとpublicディレクトリ、test_dataディレクトリをディレクトリごと、/home/web/vacancy_data/にコピーする。
+
+※テスト用のMediaファイルの削除や移動、ファイル名を変更を行った場合、ユニットテストに通らないものが出てきますので、ユニットテストを実施する際は都度、3)と4)を実施する必要があります。
+
+3) psqlでrent_dbに接続する。
+    # psql -h 127.0.0.1 -U yworks -d rent_db
+4) psqlで下記のコマンドを実行する。
+    rent_db=# \cd /home/web/test-data/Sql/Test
+    rent_db=# \i prepare_test_data.sql
+    rent_db=# \q
+
+※ユニットテスト用データにデータの追加、削除、変更を行った場合、ユニットテストに通らないものが出てきますので、ユニットテストを実施する際は都度、3)と4)を実施する必要があります。    
