@@ -200,7 +200,7 @@ ALLOWED_HOSTS = ['*']        （変更）
 (venv) pip3 install djangorestframework==3.17.1
 (venv) pip3 install django-bootstrap5==26.2
 (venv) pip3 install django-filter==25.2
-(venv) pip3 install django-cols-headers==4.9.0
+(venv) pip3 install django-cors-headers==4.9.0
 (venv) pip3 install pillow==12.2.0
 (venv) pip3 install wheel==0.46.3
 (venv) pip3 install psycopg2==2.9.11
@@ -239,7 +239,7 @@ ALLOWED_HOSTS = ['*']        （変更）
 (venv) pip3 install djangorestframework==3.17.1
 (venv) pip3 install django-bootstrap5==26.2
 (venv) pip3 install django-filter==25.2
-(venv) pip3 install django-cols-headers==4.9.0
+(venv) pip3 install django-cors-headers==4.9.0
 (venv) pip3 install pillow==12.2.0
 (venv) pip3 install wheel==0.46.3
 (venv) pip3 install psycopg2==2.9.11
@@ -277,7 +277,7 @@ ALLOWED_HOSTS = ['*']        （変更）
 (venv) pip3 install django==5.2.12
 (venv) pip3 install djangorestframework==3.17.1
 (venv) pip3 install django-filter==25.2
-(venv) pip3 install django-cols-headers==4.9.0
+(venv) pip3 install django-cors-headers==4.9.0
 (venv) pip3 install pillow==12.2.0
 (venv) pip3 install wheel==0.46.3
 (venv) pip3 install psycopg2==2.9.11
@@ -316,7 +316,7 @@ ALLOWED_HOSTS = ['*']        （変更）
 (venv) pip3 install djangorestframework==3.17.1
 (venv) pip3 install django-bootstrap5==26.2
 (venv) pip3 install django-filter==25.2
-(venv) pip3 install django-cols-headers==4.9.0
+(venv) pip3 install django-cors-headers==4.9.0
 (venv) pip3 install pillow==12.2.0
 (venv) pip3 install wheel==0.46.3
 (venv) pip3 install psycopg2==2.9.11
