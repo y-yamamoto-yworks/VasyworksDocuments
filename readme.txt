@@ -4,6 +4,9 @@ Vasyworks システムドキュメントは、VasyworksDB、VasyworksMGR、Vasyw
 
 本ドキュメントは実務で利用することを想定して設計・開発された賃貸不動産業務システム「Vasyworks」の仕様および構成をまとめたものです。
 
+動作の確認ができるDockerのテスト環境も用意しています。
+https://github.com/y-yamamoto-yworks/Vasyworks-Docker
+
 本ドキュメントは閲覧を目的として公開しています。
 
 著作権は作者に帰属します。
