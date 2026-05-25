@@ -1,0 +1,15 @@
+※先にVasyworksセットアップを完了させておくこと。
+
+【Vasyworksユニットテスト用データの準備】←各プロジェクトのユニットテストを実行する場合は、下記のような手順でユニットテスト用データを用意する。
+
+1) テストデータのdatasetディレクトリにあるdataディレクトリとsqlディレクトリをディレクトリごと、 webユーザのホームディレクトリにコピーする。
+2) dataset/media/testディレクトリのmediaディレクトリにある、privateディレクトリとpublicディレクトリ、test_dataディレクトリをディレクトリごと、/home/web/vacancy_data/media/にコピーする。
+3) psqlでrent_dbに接続する。
+    # psql -h 127.0.0.1 -U yworks -d rent_db
+4) psqlで下記のコマンドを実行する。
+    rent_db=# \cd /home/web/sql/dev
+    rent_db=# \i prepare_test_data.sql
+    rent_db=# \q
+
+※ユニットテスト用データにデータの追加、削除、変更およびMediaファイルの削除や移動、ファイル名を変更を行った場合、ユニットテストに通らないものが出てきますので、ユニットテストを実施する際は都度、2)と3)と4)を実施する必要があります。
+

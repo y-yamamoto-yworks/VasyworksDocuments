@@ -1,0 +1,15 @@
+truncate room_equipment restart identity;
+truncate room_movie restart identity;
+truncate room_panoramarestart identity;
+truncate room_picture restart identity;
+truncate room_status_log restart identity;
+truncate room_vacancy_theme restart identity;
+truncate room restart identity;
+truncate building_facility restart identity;
+truncate building_file restart identity;
+truncate building_garage restart identity;
+truncate building_landmark restart identity;
+truncate building_movie restart identity;
+truncate building_panorama restart identity;
+truncate building_picture restart identity;
+truncate building restart identity;
