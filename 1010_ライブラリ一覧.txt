@@ -1,0 +1,31 @@
+＜＜ライブラリ一覧＞＞
+【サーバサイド】
+python 3.12 PSFL
+django 5.2.12 BSD
+djangorestframework 3.17.1 BSD
+django-bootstrap5 26.2 BSD-3-Clause
+django-filter 25.2 BSD
+django-cors-headers 4.9.0 MIT
+pillow 12.2.0 PIL Software License
+psycopg2 2.9.11 LGPL
+psycopg2-binary 2.9.11 LGPL
+python-dateutil 2.8.2 BSD
+gunicorn 25.3.0 MIT
+pycryptodome 3.23.0 BSD
+qrcode 8.2 MIT
+pyproj 3.7.2 MIT
+
+
+【クライアントサイド】
+Vue.js 2.7.16 MIT
+Bootstrap5 5.0.2 MIT
+axios 0.19.2 MIT
+vue-js-modal 2.0.0 MIT
+Leaflet 1.9.4 BSD-2-Clause
+Vue2 Leaflet 2.7.1 MIT
+vanilla-autokana 1.1.6 MIT
+vue-lazyload 1.3.3 MIT
+vue-image-lightbox 2.0.7 MIT
+popper 2.0.6 MIT
+
+
