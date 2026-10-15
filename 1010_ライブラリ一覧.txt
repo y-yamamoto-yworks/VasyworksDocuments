@@ -19,7 +19,7 @@ pyproj 3.7.2 MIT
 【クライアントサイド】
 Vue.js 3.5.44 MIT
 Bootstrap5 5.0.2 MIT
-axios 0.19.2 MIT
+axios 1.20.0 MIT
 Leaflet 1.9.4 BSD-2-Clause
 vanilla-autokana 1.1.6 MIT
 Lightbox2 2.11.1 MIT
