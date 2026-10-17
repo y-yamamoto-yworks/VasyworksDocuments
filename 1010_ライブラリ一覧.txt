@@ -22,7 +22,8 @@ Bootstrap5 5.0.2 MIT
 axios 1.20.0 MIT
 Leaflet 1.9.4 BSD-2-Clause
 vanilla-autokana 1.1.6 MIT
-Lightbox2 2.11.1 MIT
+Lightbox2 2.12.0 MIT
+jQuery 3.7.1 MIT
 popper 2.0.6 MIT
 
 
